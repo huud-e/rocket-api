@@ -1,0 +1,7 @@
+{% extends "base" %}
+
+{% block extracontent %}
+
+<p>index</p>
+
+{% endblock extracontent %}

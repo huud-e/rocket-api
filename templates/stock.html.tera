@@ -2,6 +2,10 @@
 
 {% block extracontent %}
 
-<p>INDEX PAGE!</p>
+{% if v  %}
+{{ v }}
+{% elif e %}
+{{ e }}
+{% endif %}
 
 {% endblock extracontent %}

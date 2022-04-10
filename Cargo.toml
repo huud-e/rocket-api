@@ -6,7 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = "1.0.130"
+serde = { version = "1.0.130", features = ["derive"] }
+dotenv = { version = "0.15.0" }
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+tokio = { version = "1", features = ["full"] }
+rocket-include-static-resources = "0.10.1"
+serde_json = "1.0.48"
 
 [dependencies.rocket]
 version = "0.5.0-rc.1"
@@ -15,3 +20,15 @@ features = ["json", "secrets"]
 [dependencies.rocket_dyn_templates]
 version = "0.1.0-rc.1"
 features = ["handlebars", "tera"]
+
+[dependencies.diesel]
+version = "1.4.4"
+features = ["postgres"]
+
+[dependencies.rocket_sync_db_pools]
+version = "0.1.0-rc.1"
+features = ["diesel_postgres_pool"]
+
+
+
+

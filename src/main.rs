@@ -1,21 +1,14 @@
-use rocket::response::Redirect;
-use rocket::http::{Cookie, CookieJar};
-use rocket::serde::{Deserialize, json::Json};
-use rocket::form::Form;
+//use rocket::response::Redirect;
+//use rocket::http::{Cookie, CookieJar};
+use rocket::serde::{Serialize, Deserialize, json::Json};
+//use rocket::form::Form;
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 
-
 #[macro_use] extern crate rocket;
-
-#[derive(Deserialize)]
-struct Stock<'r> {
-    name: &'r str
-}
-
-#[derive(FromForm)]
-struct SStock<'r> {
-    name: &'r str
+#[derive(Serialize, Deserialize, FromForm, Debug)]
+struct Stock{
+    name: String
 }
 
 #[get("/")]
@@ -29,15 +22,23 @@ fn stock(stock: String) -> String {
     format!("Stock is {}", stock)
 }
 
-#[post("/sstock", data = "<user_input>")]
-fn ssearch(user_input: Form<SStock>) -> Redirect { 
-    Redirect::to(uri!(stock(user_input.name)))
+#[post("/", format="application/x-www-form-urlencoded",data="<stock>")]
+fn submit(stock: String) -> String {
+    // cookies: &CookieJar<'_>,
+    // cookies.add(Cookie::new(format!("{}",&stock.name),format!("{}",&stock.name)));
+    
+    
+    //if stock.name.is_empty() {
+    //    Redirect::to(uri!(stock(format!("NO"))))
+    //} else {
+        format!("Stock is {}",stock)
+        //Redirect::to(uri!(stock(split)))
+    //}
+    
 }
-
-#[post("/", data = "<stock>")]
-fn submit(cookies: &CookieJar<'_>, stock: Json<Stock<'_>>) -> Redirect {
-    cookies.add(Cookie::new(format!("{}",stock.name),format!("{}",stock.name)));
-    Redirect::to(uri!(stock(stock.name)))
+#[post("/", data = "<stock>", rank=2)]
+fn submit2(stock: Json<Stock>) -> String {
+    format!("{}", &stock.name)
 }
 
 #[launch]
@@ -46,6 +47,6 @@ fn rocket() -> _ {
         .mount("/", routes![index])
         .mount("/", routes![stock])
         .mount("/", routes![submit])
-        .mount("/", routes![ssearch])
+        .mount("/", routes![submit2])
         .attach(Template::fairing())
 }

@@ -1,2 +1,6 @@
 [default.databases]
 stocks-db = {url = "postgres://postgres:00500400Aa+@localhost:5432/rocket-db"}
+
+
+[default]
+secret_key = "DdTuhFQejlELe6qCFjlwc1Rj+NoqYkM1ZTaX4rJzKaU="

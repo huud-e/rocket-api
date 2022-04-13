@@ -1,7 +1,24 @@
 {% extends "base" %}
 
 {% block extracontent %}
+<div class="container">
+<table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Trend</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for c, k in stocks %}
+      <tr>
+        <td>{{c}}</td>
+        <td>{{k}}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
 
-<p>INDEX PAGE!</p>
 
 {% endblock extracontent %}

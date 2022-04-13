@@ -3,9 +3,10 @@
 {% block extracontent %}
 
 {% if v  %}
-{{ v }}
+
+<p>{{ v }}</p>
 {% elif e %}
-{{ e }}
+<p>{{ e }}</p>
 {% endif %}
 
 {% endblock extracontent %}

@@ -1,13 +1,7 @@
-/*
-        SI EL PRECIO SUBE Y EL VOLUMEN TAMBIEN, TREND UP
-        SI EL PRECIO BAJA Y EL VOLUMEN TAMBINE, TREND DOWN
-        SI EL PRECIO SUBE Y EL VOLUMEN SE MANTIENE/BAJA, EL TREND DOWN NO AGUANTARA
-        SI EL PRECIO BAJA Y EL VOLUMEN SE MANTIENE/SUBE, EL TREND UP NO AGUANTARA
-*/
-// use std::collections::HashMap;
+#![allow(unused)]
 use dotenv::dotenv;
 use std::env;
-use serde_json::{Result, Value};
+use serde_json::{Value};
 /*
 use std::fs::File;                                                                                                                                                                   
 use std::io::Write;                                                                                                                                                                  
@@ -20,7 +14,32 @@ use redis::{
     AsyncCommands, Client,
 };
 
-fn return_stock_values(v: Value, opt: u8) -> Vec<serde_json::value::Value> {
+
+pub async fn redis() -> Result<(), Box<dyn Error>> {
+    let client = Client::open("redis://127.0.0.1/")?;
+    let mut con = client.get_tokio_connection().await?;
+    let stock: String = "AAPL".to_string();
+    let vpt: usize = 1000000;
+    let obv: usize= 1000000;
+    con.xadd("redis_stream", "*", &[("vpt", "10"),("obv", "20")]).await?;
+    sleep(Duration::from_millis(100)).await;
+    con.xadd("redis_stream", "*", &[("vpt", "20"),("obv", "10")]).await?;
+    let result: Option<StreamRangeReply> = con.xrevrange_count("redis_stream", "+", "-", 10).await?;
+	if let Some(reply) = result {
+		for stream_id in reply.ids {
+			for (name, value) in stream_id.map.iter() {
+				println!("  ->> {}: {}", name, from_redis_value::<String>(value)?);
+			}
+		}
+	}
+
+    con.del("redis_stream").await?;
+    Ok(())
+}
+fn return_stock_names(){
+
+}
+fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
     let mut vec: Vec<serde_json::value::Value> = Vec::new();
     for (_key, value) in v.as_object().unwrap() {
         for (_key2,value2) in value.as_object().unwrap() {
@@ -48,14 +67,14 @@ pub fn url(stock: String) -> String {
     return furl;
 }
 
-fn volume_price_trend(stock: &String) -> Result<f32> {
+fn volume_price_trend(stock: &String) -> Result<f32, Box<dyn Error>> {
     // VPT = Volume x (Today’s Closing Price – Previous Closing Price) / Previous Closing Price
     let v: Value = serde_json::from_str(&stock)?;
     
     
-    let vol = return_stock_values(v.to_owned(), 5);   
-    let clo = return_stock_values(v.to_owned(), 4);
-    let pclo = return_stock_values(v, 4);
+    let vol = return_stock_values(&v, 5);   
+    let clo = return_stock_values(&v, 4);
+    let pclo = return_stock_values(&v, 4);
 
     
     let mut i = vol.len() - 2;
@@ -94,16 +113,12 @@ fn volume_price_trend(stock: &String) -> Result<f32> {
     Ok(vpt)
 }
 
-async fn redis() -> Result<()> {
-    Ok(())
-}
-
-fn on_balance_volume(stock: &String) -> Result<f32>{
+fn on_balance_volume(stock: &String) -> Result<f32, Box<dyn Error>>{
     let v: Value = serde_json::from_str(&stock)?;
     
-    let vol = return_stock_values(v.to_owned(), 5);   
-    let clo = return_stock_values(v.to_owned(), 4);
-    let pclo = return_stock_values(v, 4);
+    let vol = return_stock_values(&v, 5);   
+    let clo = return_stock_values(&v, 4);
+    let pclo = return_stock_values(&v, 4);
 
     let mut i = vol.len() - 2;
     let mut ii = vol.len() - 1;
@@ -156,7 +171,7 @@ pub fn analize(stock:String) -> Vec<f32>{
     let obv = on_balance_volume(&stock).unwrap();
     result.push(obv);
     
-
+    
 
 
 

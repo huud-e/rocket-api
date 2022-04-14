@@ -26,7 +26,11 @@ struct StocksDbConn(diesel::PgConnection);
 #[get("/")]
 async fn index(cookies: &CookieJar<'_> ) -> Result<Template, std::io::Error> {
     let mut target: HashMap<String, Vec<f32>> = HashMap::new();
-    
+    match redis().await {
+        Err(e) => println!("{:?}", e),
+        _ => ()
+    }
+
     for c in cookies.iter() {
         let body = reqwest::get(url(c.name().to_string())).await.unwrap().text().await.unwrap();
         target.insert(format!("{}", c.name()), analize(body));

@@ -22,14 +22,6 @@ features = ["json", "secrets"]
 version = "0.1.0-rc.1"
 features = ["handlebars", "tera"]
 
-[dependencies.diesel]
-version = "1.4.4"
-features = ["postgres"]
-
-[dependencies.rocket_sync_db_pools]
-version = "0.1.0-rc.1"
-features = ["diesel_postgres_pool"]
-
 
 
 

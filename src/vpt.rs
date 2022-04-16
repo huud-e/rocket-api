@@ -5,7 +5,8 @@ use serde_json::{Value};
 /*
 use std::fs::File;                                                                                                                                                                   
 use std::io::Write;                                                                                                                                                                  
- */
+*/
+use std::collections::HashMap;
 use std::{error::Error, time::Duration};
 use tokio::time::sleep;
 use redis::{
@@ -14,30 +15,75 @@ use redis::{
     AsyncCommands, Client,
 };
 
-
-pub async fn redis() -> Result<(), Box<dyn Error>> {
+pub async fn exists_in_redis(stock: &String) -> Result<bool, Box<dyn Error>> {
     let client = Client::open("redis://127.0.0.1/")?;
     let mut con = client.get_tokio_connection().await?;
-    let stock: String = "AAPL".to_string();
-    let vpt: usize = 1000000;
-    let obv: usize= 1000000;
-    con.xadd("redis_stream", "*", &[("vpt", "10"),("obv", "20")]).await?;
-    sleep(Duration::from_millis(100)).await;
-    con.xadd("redis_stream", "*", &[("vpt", "20"),("obv", "10")]).await?;
+    let mut exists = false;
     let result: Option<StreamRangeReply> = con.xrevrange_count("redis_stream", "+", "-", 10).await?;
 	if let Some(reply) = result {
 		for stream_id in reply.ids {
-			for (name, value) in stream_id.map.iter() {
-				println!("  ->> {}: {}", name, from_redis_value::<String>(value)?);
+			for (name, value) in stream_id.map.iter() {                              
+                // VPT
+                let strings: Vec<&str> = name.split("vpt").collect();
+                let nvpt: &str = strings[0];
+                if nvpt == stock {
+                    exists = true;
+                }
+                // OBV
+                let strings: Vec<&str> = stock.split("obv").collect();
+                let nobv: &str = strings[0];
+                
+                if nobv == name {
+                    exists = true;
+                }
+                
 			}
 		}
 	}
+    Ok(exists)
+}
 
-    con.del("redis_stream").await?;
+pub async fn add_to_redis(stock: &String) -> Result<(), Box<dyn Error>> {
+
+    let client = Client::open("redis://127.0.0.1/")?;
+    let mut con = client.get_tokio_connection().await?;
+    
+    let body = reqwest::get(url(stock.to_string())).await.unwrap().text().await.unwrap();
+    let res = analize(body);
+
+    sleep(Duration::from_millis(100)).await;
+    con.xadd("redis_stream", "*", &[(format!("{}vpt",stock), format!("{}", res[0])),(format!("{}obv",stock), format!("{}", res[1]))]).await?;
+
     Ok(())
 }
-fn return_stock_names(){
-
+pub async fn return_of_redis(stock: &String) -> Result<Vec<String>, Box<dyn Error>> {
+    let client = Client::open("redis://127.0.0.1/")?;
+    let mut con = client.get_tokio_connection().await?;
+    let mut res: Vec<String> = Vec::new();
+    let mut vpt: String = "Error: Coudn't parse vpt of stock".to_string();
+    let mut obv: String = "Error: Coudn't parse obv of stock".to_string();
+    let result: Option<StreamRangeReply> = con.xrevrange_all("redis_stream").await?;
+	if let Some(reply) = result {
+		for stream_id in reply.ids {
+			for (name, value) in stream_id.map.iter() {
+                let strings: Vec<&str> = name.split("vpt").collect();
+                let nvpt: &str = strings[0];
+                if nvpt == stock {
+                    vpt = from_redis_value::<String>(value)?;
+                }
+                let strings: Vec<&str> = name.split("obv").collect();
+                let nvpt: &str = strings[0];
+                if nvpt == stock {
+                    obv = from_redis_value::<String>(value)?;
+                } 
+                               
+			}
+		}
+        res.push(obv);
+        res.push(vpt);
+	}
+    
+    Ok(res)
 }
 fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
     let mut vec: Vec<serde_json::value::Value> = Vec::new();
@@ -97,7 +143,6 @@ fn volume_price_trend(stock: &String) -> Result<f32, Box<dyn Error>> {
         let pclo = pclo[ii].as_str().unwrap();
         let pclo: f32 = pclo.parse().unwrap();
         
-        
         vpt = pvt + vol * ( clo - pclo ) / pclo;
         pvt = vpt;
         
@@ -108,8 +153,6 @@ fn volume_price_trend(stock: &String) -> Result<f32, Box<dyn Error>> {
         
     }
 
-    println!("VPT of stock is {:?}", vpt);
-    
     Ok(vpt)
 }
 
@@ -139,8 +182,7 @@ fn on_balance_volume(stock: &String) -> Result<f32, Box<dyn Error>>{
         
         let pclo = pclo[ii].as_str().unwrap();
         let pclo: f32 = pclo.parse().unwrap();
-        
-        
+         
         if clo > pclo {
             obv = pobv + vol;
         }else if clo < pclo {
@@ -156,24 +198,19 @@ fn on_balance_volume(stock: &String) -> Result<f32, Box<dyn Error>>{
         ii = ii - 1;
         
     }
-    println!("OBV of stock is {:?}", obv);
     Ok(obv)
 
 }
 
 
-pub fn analize(stock:String) -> Vec<f32>{
+pub fn analize(body:String) -> Vec<f32>{
     let mut result= Vec::new();
     
-    let vpt = volume_price_trend(&stock).unwrap();
+    let vpt = volume_price_trend(&body).unwrap();
     result.push(vpt);
     
-    let obv = on_balance_volume(&stock).unwrap();
+    let obv = on_balance_volume(&body).unwrap();
     result.push(obv);
     
-    
-
-
-
     return result;
 }

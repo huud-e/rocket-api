@@ -25,17 +25,23 @@ struct StocksDbConn(diesel::PgConnection);
  */
 #[get("/")]
 async fn index(cookies: &CookieJar<'_> ) -> Result<Template, std::io::Error> {
-    let mut target: HashMap<String, Vec<f32>> = HashMap::new();
-    match redis().await {
-        Err(e) => println!("{:?}", e),
-        _ => ()
+    let mut target: HashMap<String, Vec<String>> = HashMap::new();
+    for c in cookies.iter() {
+        if c.name().to_string() != "admin"{
+            if !exists_in_redis(&c.name().to_string()).await.unwrap() {
+                match add_to_redis(&c.value().to_string()).await {
+                    Err(e) => println!("{:?}", e),
+                    _ => ()
+                }
+                target.insert(format!("{}", c.name()), return_of_redis(&c.name().to_string()).await.unwrap());
+                println!("Doesnt exist in redis db, adding stock: {}", c.name().to_string());
+            }else{
+                target.insert(format!("{}", c.name()), return_of_redis(&c.name().to_string()).await.unwrap());
+            }
+        }
     }
 
-    for c in cookies.iter() {
-        let body = reqwest::get(url(c.name().to_string())).await.unwrap().text().await.unwrap();
-        target.insert(format!("{}", c.name()), analize(body));
-    }
-    let mut vec: HashMap<String, HashMap<String, Vec<f32>>> = HashMap::new();
+    let mut vec: HashMap<String, HashMap<String, Vec<String>>> = HashMap::new();
     vec.insert(format!("stocks"), target);
 
     Ok(Template::render("index", vec))
@@ -70,6 +76,18 @@ async fn submit(stock: String, cookies: &CookieJar<'_> ) -> Result<Redirect,std:
     Ok(Redirect::to(uri!(index)))
 }
 
+#[get("/login")]
+fn login(cookies: &CookieJar<'_>) -> Redirect{
+    cookies.add_private(Cookie::new(format!("admin"),format!("true")));
+    Redirect::to(uri!(index))
+}
+
+#[get("/logout")]
+fn logout(cookies: &CookieJar<'_>) -> Redirect {
+    cookies.remove_private(Cookie::named("admin"));
+    Redirect::to(uri!(index))
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
@@ -79,5 +97,5 @@ fn rocket() -> _ {
             "favicon" => "static/favicon.ico",
         ))
         .mount("/", routes![favicon])
-        .mount("/", routes![index, submit])
+        .mount("/", routes![index, submit, login, logout])
 }

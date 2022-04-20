@@ -12,6 +12,9 @@ use vpt::*;
 
 static_response_handler! {
     "/favicon.ico" => favicon => "favicon",
+    "/model.json" => model => "model",
+    "/group1shard1of1.bin" => group1shard1of1 => "group1shard1of1",
+    "/output" => output => "output",
 }
 
 #[get("/")]
@@ -53,13 +56,10 @@ async fn submit(stock: String, cookies: &CookieJar<'_> ) -> Result<Redirect,std:
     if bool == false{
         let body = reqwest::get(url(stock.to_owned())).await.unwrap().text().await.unwrap();
         let parsed = json!(&body);
-        let mut target: HashMap<String,String> = HashMap::new();
-        if parsed == "{\n    \"Error Message\": \"Invalid API call. Please retry or visit the documentation (https://www.alphavantage.co/documentation/) for TIME_SERIES_DAILY.\"\n}"{
+        if parsed == "{\"error\":{\"code\":\"no_valid_symbols_provided\",\"message\":\"At least one valid symbol must be provided\"}}"{
             println!("Invalid API CALL");
         }else{
             cookies.add(Cookie::new(format!("{}", stock),format!("{}", stock)));
-            let context: String = format!("Good, stock: {}, exists in API!", stock);
-            target.insert("v".to_string(), context);
             println!("Valid API CALL"); 
         }
     }
@@ -77,6 +77,14 @@ fn logout(cookies: &CookieJar<'_>) -> Redirect {
     cookies.remove_private(Cookie::named("admin"));
     Redirect::to(uri!(index))
 }
+#[get("/predict/<stock>")]
+async fn predict(stock: String) -> Result<Redirect,std::io::Error> {
+
+    let body = reqwest::get(url(stock)).await.unwrap().text().await.unwrap();
+    write_to_file(&body).unwrap();
+    Ok(Redirect::to(uri!(index)))
+}
+
 
 #[launch]
 fn rocket() -> _ {
@@ -84,7 +92,10 @@ fn rocket() -> _ {
         .attach(Template::fairing())
         .attach(static_resources_initializer!(
             "favicon" => "static/favicon.ico",
+            "model" => "model/model.json",
+            "group1shard1of1" => "model/group1shard1of1.bin",
+            "output" => "tmp/output",
         ))
-        .mount("/", routes![favicon])
-        .mount("/", routes![index, submit, login, logout])
+        .mount("/", routes![favicon, model,group1shard1of1])
+        .mount("/", routes![index, submit, login, logout, predict])
 }

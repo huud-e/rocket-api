@@ -1,12 +1,26 @@
 {% extends "base" %}
 
 {% block extracontent %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-csv/1.0.21/jquery.csv.min.js" integrity="sha512-Y8iWYJDo6HiTo5xtml1g4QqHtl/PO1w+dmUpQfQSOTqKNsMhExfyPN2ncNAe9JuJUSKzwK/b6oaNPop4MXzkwg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-csv/1.0.21/jquery.csv.js" integrity="sha512-2ypsPur7qcA+2JjmmIJR1c4GWFqTLIe1naXXplraMg0aWyTOyAMpOk+QL+ULpzwrO/GdwA3qB3FhVyyiR8gdhw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+
+<script>
+  var modelo = null;
+  (async () => {
+  console.log("Cargando modelo...");
+  modelo = await tf.loadLayersModel("model.json");
+  console.log("Modelo cargado!");
+})();
+</script>
+
 <div class="container">
 <table class="table">
     <thead>
       <tr>
         <th scope="col">Name</th>
-        <th scope="col">Trend</th>
+        <th scope="col">Data</th>
+        <th scope="col">Prediction</th>
       </tr>
     </thead>
     <tbody>
@@ -14,6 +28,39 @@
       <tr>
         <td>{{c}}</td>
         <td>{{k}}</td>
+        <td>
+          <p id="prediction"></p>
+          
+
+          <script type="text/javascript">
+
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.onreadystatechange = function() { 
+                if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                    callback(xmlHttp.responseText);
+            }
+            xmlHttp.open("GET", "/predict/{{c}}", true); // true for asynchronous 
+            xmlHttp.send(null);
+            let text;
+
+            const reader = new FileReader();
+            var fileToRead = document.querySelector('output').files[0];
+
+            reader.addEventListener("loadend", function() {
+              document.getElementById('file').innerText = reader.result;
+            });
+
+            reader.readAsText(fileToRead);
+
+            /*
+            var tensor = tf.tensor1d([data]);
+            var prediccion = modelo.predict(tensor).dataSync();
+            */
+            document.getElementById("prediccion").innerHTML = prediccion;
+          
+          </script>
+
+        </td>
       </tr>
     {% endfor %}
     </tbody>

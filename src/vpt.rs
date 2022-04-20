@@ -14,6 +14,10 @@ use redis::{
     streams::{StreamRangeReply, StreamReadOptions, StreamReadReply},
     AsyncCommands, Client,
 };
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+};
 
 pub async fn exists_in_redis(stock: &String) -> Result<bool, Box<dyn Error>> {
     let client = Client::open("redis://127.0.0.1/")?;
@@ -49,7 +53,8 @@ pub async fn add_to_redis(stock: &String) -> Result<(), Box<dyn Error>> {
     let mut con = client.get_tokio_connection().await?;
     
     let body = reqwest::get(url(stock.to_string())).await.unwrap().text().await.unwrap();
-    let res = analize(body);
+    let res = analize(&body).unwrap();
+    // write_to_file(&body);
 
     sleep(Duration::from_millis(100)).await;
     con.xadd("redis_stream", "*", &[(format!("{}vpt",stock), format!("{}", res[0])),(format!("{}obv",stock), format!("{}", res[1]))]).await?;
@@ -88,15 +93,17 @@ pub async fn return_of_redis(stock: &String) -> Result<Vec<String>, Box<dyn Erro
 fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
     let mut vec: Vec<serde_json::value::Value> = Vec::new();
     for (_key, value) in v.as_object().unwrap() {
-        for (_key2,value2) in value.as_object().unwrap() {
-            // key 2022-04-05 value Object
-            match opt {
-                1 => vec.push(value2["1. open"].clone()),
-                2 => vec.push(value2["2. high"].clone()),
-                3 => vec.push(value2["3. low"].clone()),
-                4 => vec.push(value2["4. close"].clone()),
-                5 => vec.push(value2["5. volume"].clone()),
-                _ => (),
+        if _key == "data" {
+            let val = value.as_array().unwrap();
+            for i in val{
+                match opt{
+                    1=> vec.push(i["open"].clone()),
+                    2=> vec.push(i["high"].clone()),
+                    3=> vec.push(i["low"].clone()),
+                    4=> vec.push(i["close"].clone()),
+                    5=> vec.push(i["volume"].clone()),
+                    _ => ()
+                }
             }
         }
     }
@@ -104,46 +111,34 @@ fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
 }
 pub fn url(stock: String) -> String {
     dotenv().ok();
-    let api_key = env::var("API_KEY")
+    let api_key = env::var("NEW_KEY")
         .expect("API_KEY must be set");
-    let url: String = format!("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={URL}&outputsize=full&apikey=", URL= stock);
-    let url = url.to_owned();
-    let key: String = api_key.to_owned();
-    let furl = format!("{}{}", url,key);
-    return furl;
+    let url: String = format!("http://api.marketstack.com/v1/eod?access_key={KEY}&symbols={URL}&date_from=2021-04-19&date_to=2022-04-19", URL= stock, KEY= api_key);
+    
+    return url;
 }
 
-fn volume_price_trend(stock: &String) -> Result<f32, Box<dyn Error>> {
-    // VPT = Volume x (Today’s Closing Price – Previous Closing Price) / Previous Closing Price
+fn volume_price_trend(stock: &String) -> Result<Vec<f64>, Box<dyn Error>> {
     let v: Value = serde_json::from_str(&stock)?;
-    
     
     let vol = return_stock_values(&v, 5);   
     let clo = return_stock_values(&v, 4);
-    let pclo = return_stock_values(&v, 4);
+    let pclo = &clo;
 
-    
     let mut i = vol.len() - 2;
     let mut ii = vol.len() - 1;
-    
     let mut vpt = 0.0;
     let mut pvt = 0.0;
 
     let mut vpts = Vec::new(); 
 
-    while i > 4{
+    while i > 0{
 
-        // println!("{}{}{}",vol[i], clo[i], i);
-        let vol = vol[i].as_str().unwrap();
-        let vol: f32 = vol.parse().unwrap();
-
-        let clo = clo[i].as_str().unwrap();
-        let clo: f32 = clo.parse().unwrap();
+        let volum = vol[i].as_f64().unwrap();
+        let close = clo[i].as_f64().unwrap();        
+        let pclose = pclo[ii].as_f64().unwrap();
         
-        let pclo = pclo[ii].as_str().unwrap();
-        let pclo: f32 = pclo.parse().unwrap();
-        
-        vpt = pvt + vol * ( clo - pclo ) / pclo;
+        vpt = pvt + volum * ( close - pclose ) / pclose;
         pvt = vpt;
         
         vpts.push(vpt);
@@ -152,42 +147,34 @@ fn volume_price_trend(stock: &String) -> Result<f32, Box<dyn Error>> {
         ii = ii - 1;
         
     }
-
-    Ok(vpt)
+    
+    Ok(vpts)
 }
-
-fn on_balance_volume(stock: &String) -> Result<f32, Box<dyn Error>>{
+fn on_balance_volume(stock: &String) -> Result<Vec<f64>, Box<dyn Error>>{
     let v: Value = serde_json::from_str(&stock)?;
     
     let vol = return_stock_values(&v, 5);   
     let clo = return_stock_values(&v, 4);
-    let pclo = return_stock_values(&v, 4);
+    let pclo = &clo;
 
     let mut i = vol.len() - 2;
     let mut ii = vol.len() - 1;
-    
     let mut obv = 0.0;
     let mut pobv = 0.0;
 
     let mut fobv = Vec::new(); 
     
-    while i > 4{
+    while i > 0{
 
-        // println!("{}{}{}",vol[i], clo[i], i);
-        let vol = vol[i].as_str().unwrap();
-        let vol: f32 = vol.parse().unwrap();
-
-        let clo = clo[i].as_str().unwrap();
-        let clo: f32 = clo.parse().unwrap();
-        
-        let pclo = pclo[ii].as_str().unwrap();
-        let pclo: f32 = pclo.parse().unwrap();
+        let volum = vol[i].as_f64().unwrap();
+        let close = clo[i].as_f64().unwrap();        
+        let pclose = pclo[ii].as_f64().unwrap();
          
-        if clo > pclo {
-            obv = pobv + vol;
-        }else if clo < pclo {
-            obv = pobv - vol;
-        }else if clo == pclo{
+        if close > pclose {
+            obv = pobv + volum;
+        }else if close < pclose {
+            obv = pobv - volum;
+        }else if close == pclose{
             obv = pobv;
         }
 
@@ -198,19 +185,48 @@ fn on_balance_volume(stock: &String) -> Result<f32, Box<dyn Error>>{
         ii = ii - 1;
         
     }
-    Ok(obv)
-
+    Ok(fobv)
 }
 
 
-pub fn analize(body:String) -> Vec<f32>{
+pub fn analize(body: &String) -> Result<Vec<f64>, Box<dyn Error>>{
     let mut result= Vec::new();
     
     let vpt = volume_price_trend(&body).unwrap();
-    result.push(vpt);
-    
+    let len = vpt.len();
+    result.push(vpt[len - 1]);
     let obv = on_balance_volume(&body).unwrap();
-    result.push(obv);
+    let len2 = obv.len();
+    result.push(obv[len2 - 1]);
     
-    return result;
+    
+    Ok(result)
+}
+
+pub fn write_to_file(body: &String) -> Result<(), Box<dyn Error>>{
+    let v: Value = serde_json::from_str(&body)?;
+
+
+    let open = return_stock_values(&v,1);
+    let high = return_stock_values(&v,1);
+    let low = return_stock_values(&v,1);
+    let close = return_stock_values(&v,1);
+    let volume = return_stock_values(&v,1);
+    let vpts = volume_price_trend(&body).unwrap();
+    let obvs = on_balance_volume(&body).unwrap();
+
+    let write_file = File::create("tmp/output").unwrap();
+    let mut writer = BufWriter::new(&write_file);
+
+    write!(&mut writer, "Open,High,Low,Close,Volume,VPT,OBV,Trend\n"); 
+    let mut counter = open.len() - 3;
+    let mut counter2 = vpts.len() - 1;
+    let mut counter3 = obvs.len() - 1;
+    while counter > 0{
+        write!(&mut writer, "{},{},{},{},{},{},{},{}\n", open[counter],high[counter],low[counter],close[counter],volume[counter],vpts[counter2],obvs[counter2],if open[counter].as_f64().unwrap() > open[counter - 1].as_f64().unwrap() {0} else {1});
+        counter = counter - 1;
+        counter2 = counter2 - 1;
+    }
+
+    Ok(())
 }

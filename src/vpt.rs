@@ -2,10 +2,6 @@
 use dotenv::dotenv;
 use std::env;
 use serde_json::{Value};
-/*
-use std::fs::File;                                                                                                                                                                   
-use std::io::Write;                                                                                                                                                                  
-*/
 use std::collections::HashMap;
 use std::{error::Error, time::Duration};
 use tokio::time::sleep;
@@ -18,6 +14,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
 };
+use chrono::{DateTime, Utc, Duration as Duration2};
 
 pub async fn exists_in_redis(stock: &String) -> Result<bool, Box<dyn Error>> {
     let client = Client::open("redis://127.0.0.1/")?;
@@ -92,8 +89,8 @@ pub async fn return_of_redis(stock: &String) -> Result<Vec<String>, Box<dyn Erro
 }
 fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
     let mut vec: Vec<serde_json::value::Value> = Vec::new();
-    for (_key, value) in v.as_object().unwrap() {
-        if _key == "data" {
+    for (key, value) in v.as_object().unwrap() {
+        if key == "data" {
             let val = value.as_array().unwrap();
             for i in val{
                 match opt{
@@ -107,15 +104,33 @@ fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
             }
         }
     }
-    return vec;
+return vec;
 }
+
 pub fn url(stock: String) -> String {
     dotenv().ok();
-    let api_key = env::var("NEW_KEY")
+    let api_key = env::var("API_KEY")
         .expect("API_KEY must be set");
-    let url: String = format!("http://api.marketstack.com/v1/eod?access_key={KEY}&symbols={URL}&date_from=2021-04-19&date_to=2022-04-19", URL= stock, KEY= api_key);
+    let url: String = format!("https://api.marketstack.com/v1/eod?access_key={KEY}&symbols={URL}&date_from=2002-04-21&date_to=2022-04-21&limit=10000", URL= stock, KEY= api_key);
     
     return url;
+}
+
+pub fn url_predict(stock: String) -> Vec<String> {
+    let mut res: Vec<String> = Vec::new();
+    dotenv().ok();
+    let api_key = env::var("API_KEY")
+        .expect("API_KEY must be set");
+        
+        
+    let today: DateTime<Utc> = Utc::now() - Duration2::days(1);;
+    let url: String = format!("https://api.marketstack.com/v1/eod/{DATE}?access_key={KEY}&symbols={URL}", URL= stock, KEY= api_key, DATE=today.format("%Y-%m-%d"));
+    res.push(url);
+    
+    let yesterday: DateTime<Utc> = Utc::now() - Duration2::days(2);
+    let url2: String = format!("https://api.marketstack.com/v1/eod/{DATE}?access_key={KEY}&symbols={URL}", URL= stock, KEY= api_key, DATE=yesterday.format("%Y-%m-%d"));
+    res.push(url2);
+    return res;
 }
 
 fn volume_price_trend(stock: &String) -> Result<Vec<f64>, Box<dyn Error>> {
@@ -205,17 +220,42 @@ pub fn analize(body: &String) -> Result<Vec<f64>, Box<dyn Error>>{
 
 pub fn write_to_file(body: &String) -> Result<(), Box<dyn Error>>{
     let v: Value = serde_json::from_str(&body)?;
-
+    
 
     let open = return_stock_values(&v,1);
-    let high = return_stock_values(&v,1);
-    let low = return_stock_values(&v,1);
-    let close = return_stock_values(&v,1);
-    let volume = return_stock_values(&v,1);
+    let high = return_stock_values(&v,2);
+    let low = return_stock_values(&v,3);
+    let close = return_stock_values(&v,4);
+    let volume = return_stock_values(&v,5);
     let vpts = volume_price_trend(&body).unwrap();
     let obvs = on_balance_volume(&body).unwrap();
 
     let write_file = File::create("tmp/output").unwrap();
+    let mut writer = BufWriter::new(&write_file);
+
+    write!(&mut writer, "Open,High,Low,Close,Volume,VPT,OBV,Trend\n"); 
+    let mut counter = open.len() - 3;
+    let mut counter2 = vpts.len() - 1;
+    let mut counter3 = obvs.len() - 1;
+    while counter > 0{
+        write!(&mut writer, "{},{},{},{},{},{},{},{}\n", open[counter],high[counter],low[counter],close[counter],volume[counter],vpts[counter2],obvs[counter2],if open[counter].as_f64().unwrap() > open[counter - 1].as_f64().unwrap() {0} else {1});
+        counter = counter - 1;
+        counter2 = counter2 - 1;
+    }
+
+    Ok(())
+}
+pub fn write_to_file_predict(body: &String) -> Result<(), Box<dyn Error>>{
+    let v: Value = serde_json::from_str(&body)?;
+    let open = return_stock_values(&v,1);
+    let high = return_stock_values(&v,2);
+    let low = return_stock_values(&v,3);
+    let close = return_stock_values(&v,4);
+    let volume = return_stock_values(&v,5);
+    let vpts = volume_price_trend(&body).unwrap();
+    let obvs = on_balance_volume(&body).unwrap();
+
+    let write_file = File::create("predict/output").unwrap();
     let mut writer = BufWriter::new(&write_file);
 
     write!(&mut writer, "Open,High,Low,Close,Volume,VPT,OBV,Trend\n"); 

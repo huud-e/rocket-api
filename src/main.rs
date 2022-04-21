@@ -15,6 +15,7 @@ static_response_handler! {
     "/model.json" => model => "model",
     "/group1shard1of1.bin" => group1shard1of1 => "group1shard1of1",
     "/output" => output => "output",
+    "/output" => output2 => "output",
 }
 
 #[get("/")]
@@ -77,14 +78,34 @@ fn logout(cookies: &CookieJar<'_>) -> Redirect {
     cookies.remove_private(Cookie::named("admin"));
     Redirect::to(uri!(index))
 }
-#[get("/predict/<stock>")]
-async fn predict(stock: String) -> Result<Redirect,std::io::Error> {
+#[get("/to_file/<stock>")]
+async fn to_file(stock: String) -> Result<Redirect,std::io::Error> {
 
     let body = reqwest::get(url(stock)).await.unwrap().text().await.unwrap();
-    write_to_file(&body).unwrap();
+    match write_to_file(&body){
+        Err(e) => println!("{:?}", e),
+        _ => (),
+    }
     Ok(Redirect::to(uri!(index)))
 }
 
+#[get("/predict/<stock>")]
+async fn predict(stock:String) -> Result<Redirect, std::io::Error>{
+    let vec = url_predict(stock);
+    let mut body:String = "".to_string();
+    for url in vec{
+        let r = reqwest::get(url).await.unwrap().text().await.unwrap();
+        body.push_str(&r);
+    }
+    body = body.trim().to_string();
+    println!("{}", body);
+    match write_to_file_predict(&body){
+        Err(e) => println!("{:?}", e),
+        _ => (),
+    }
+    println!("Correcto!");
+    Ok(Redirect::to(uri!(index)))
+}
 
 #[launch]
 fn rocket() -> _ {
@@ -95,7 +116,8 @@ fn rocket() -> _ {
             "model" => "model/model.json",
             "group1shard1of1" => "model/group1shard1of1.bin",
             "output" => "tmp/output",
+            "output2" => "predict/output",
         ))
         .mount("/", routes![favicon, model,group1shard1of1])
-        .mount("/", routes![index, submit, login, logout, predict])
+        .mount("/", routes![index, submit, login, logout, predict, to_file])
 }

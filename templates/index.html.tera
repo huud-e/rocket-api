@@ -24,6 +24,7 @@
         <td>{{c}}</td>
         <td>{{k}}</td>
         <td>
+          <script>request('{{c}}','{{k}}')</script>
           <button class="btn btn-primary" id={{c}} onclick="request('{{c}}','{{k}}')">Predict</button>
         </td>
       </tr>

@@ -3,9 +3,9 @@
 {% block extracontent %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-csv/1.0.21/jquery.csv.min.js" integrity="sha512-Y8iWYJDo6HiTo5xtml1g4QqHtl/PO1w+dmUpQfQSOTqKNsMhExfyPN2ncNAe9JuJUSKzwK/b6oaNPop4MXzkwg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-csv/1.0.21/jquery.csv.js" integrity="sha512-2ypsPur7qcA+2JjmmIJR1c4GWFqTLIe1naXXplraMg0aWyTOyAMpOk+QL+ULpzwrO/GdwA3qB3FhVyyiR8gdhw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.12.0/dist/tf.min.js" integrity="sha256-Yl5oUVtHQ3wqFAPCSZmKxzSb/uZt+xzdT9mDPwwNYbk=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" integrity="sha512-SGWgwwRA8xZgEoKiex3UubkSkV1zSE1BS6O4pXcaxcNtUlQsOmOmhVnDwIvqGRfEmuz83tIGL13cXMZn6upPyg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <p id="modelo">&emsp;No se ha encontrado modelo!</p>
 
@@ -24,7 +24,7 @@
         <td>{{c}}</td>
         <td>{{k}}</td>
         <td>
-          <button class="btn btn-primary" id={{c}} onclick="request('{{c}}')">Predict</button>
+          <button class="btn btn-primary" id={{c}} onclick="request('{{c}}','{{k}}')">Predict</button>
         </td>
       </tr>
     {% endfor %}
@@ -50,18 +50,60 @@ tf.serialization.registerClass(L2);
   
   
   
-  function request(stock){
-      var xmlHttp = new XMLHttpRequest();
-      xmlHttp.onreadystatechange = function() { 
-          if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-              callback(xmlHttp.responseText);
+function request(stock, k){
+  k = k.slice(1, -1);
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() { 
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+          callback(xmlHttp.responseText);
+    }
+    xmlHttp.open("GET", "/predict/" + stock + "/" + k , true); // true for asynchronous 
+    xmlHttp.send(null);
+  
+  async function run() {
+    const csvUrl = 'output2';
+    const csvDataset = tf.data.csv(
+      csvUrl, {
+        columnConfigs: {
+          'Trend': {
+            isLabel: true
+          }
+        }
+      });
+  
+    const numOfFeatures = (await csvDataset.columnNames()).length - 1;
+  
+    // Prepare the Dataset for training.
+    const flattenedDataset =
+      csvDataset
+      .map(({xs, ys}) =>
+        {
+          // Convert xs(features) and ys(labels) from object form (keyed by
+          // column name) to array form.
+          return {xs:Object.values(xs), ys:Object.values(ys)};
+        })
+      //.batch(10);
+  
+  const it = await flattenedDataset.iterator()
+      const xs = []
+      const ys = []
+      // read only the data for the first 5 rows
+      // all the data need not to be read once 
+      // since it will consume a lot of memory
+      for (let i = 0; i < 1; i++) {
+          let e = await it.next()
+        xs.push(e.value.xs)
+        ys.push(e.value.ys)
       }
-      xmlHttp.open("GET", "/predict/" + stock, true); // true for asynchronous 
-      xmlHttp.send(null);
-      
-      div = document.getElementById(stock);
-      const pre = "Predicted!!";
-      div.replaceWith(pre);
+    const features = tf.tensor(xs)
+    const labels = tf.tensor(ys)
+
+    let a = modelo.predict(features, labels);
+    div = document.getElementById(stock);
+    div.replaceWith(a);
   }
+  run();
+}
+    
 </script>
 {% endblock extracontent %}

@@ -1031,6 +1031,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "json_value_merge"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc92837e7e541ab4a529c8f145bf9bd00718f6e2823705403521ead6204a0e5e"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "kernel32-sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1829,6 +1838,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dotenv",
+ "json_value_merge",
  "redis",
  "reqwest",
  "rocket",

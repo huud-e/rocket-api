@@ -14,7 +14,7 @@ rocket-include-static-resources = "0.10.1"
 serde_json = "1.0.48"
 redis = { version = "0.21.5", features = ["tokio-comp"] }
 chrono = "0.4"
-
+json_value_merge = "1.1"
 [dependencies.rocket]
 version = "0.5.0-rc.1"
 features = ["json", "secrets"]

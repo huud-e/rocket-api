@@ -107,6 +107,7 @@ fn return_stock_values(v: &Value, opt: u8) -> Vec<serde_json::value::Value> {
 return vec;
 }
 
+
 pub fn url(stock: String) -> String {
     dotenv().ok();
     let api_key = env::var("API_KEY")
@@ -245,27 +246,22 @@ pub fn write_to_file(body: &String) -> Result<(), Box<dyn Error>>{
 
     Ok(())
 }
-pub fn write_to_file_predict(body: &String) -> Result<(), Box<dyn Error>>{
+pub fn write_to_file_predict(body: &String, vpt: &String, obv: &String) -> Result<(), Box<dyn Error>>{
     let v: Value = serde_json::from_str(&body)?;
     let open = return_stock_values(&v,1);
     let high = return_stock_values(&v,2);
     let low = return_stock_values(&v,3);
     let close = return_stock_values(&v,4);
     let volume = return_stock_values(&v,5);
-    let vpts = volume_price_trend(&body).unwrap();
-    let obvs = on_balance_volume(&body).unwrap();
-
-    let write_file = File::create("predict/output").unwrap();
+    
+    let write_file = File::create("predict/output2").unwrap();
     let mut writer = BufWriter::new(&write_file);
-
     write!(&mut writer, "Open,High,Low,Close,Volume,VPT,OBV,Trend\n"); 
-    let mut counter = open.len() - 3;
-    let mut counter2 = vpts.len() - 1;
-    let mut counter3 = obvs.len() - 1;
+
+    let mut counter = open.len() - 1;
     while counter > 0{
-        write!(&mut writer, "{},{},{},{},{},{},{},{}\n", open[counter],high[counter],low[counter],close[counter],volume[counter],vpts[counter2],obvs[counter2],if open[counter].as_f64().unwrap() > open[counter - 1].as_f64().unwrap() {0} else {1});
+        write!(&mut writer, "{},{},{},{},{},{},{},{}", open[counter],high[counter],low[counter],close[counter],volume[counter],vpt,obv,if open[counter].as_f64().unwrap() > open[counter - 1].as_f64().unwrap() {0} else {1});
         counter = counter - 1;
-        counter2 = counter2 - 1;
     }
 
     Ok(())

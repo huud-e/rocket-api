@@ -260,6 +260,7 @@ pub fn write_to_file_predict(body: &String, vpt: &String, obv: &String) -> Resul
 
     let mut counter = open.len() - 1;
     while counter > 0{
+        println!("{},{},{},{},{},{},{},{}", open[counter],high[counter],low[counter],close[counter],volume[counter],vpt,obv,if open[counter].as_f64().unwrap() > open[counter - 1].as_f64().unwrap() {0} else {1});
         write!(&mut writer, "{},{},{},{},{},{},{},{}", open[counter],high[counter],low[counter],close[counter],volume[counter],vpt,obv,if open[counter].as_f64().unwrap() > open[counter - 1].as_f64().unwrap() {0} else {1});
         counter = counter - 1;
     }

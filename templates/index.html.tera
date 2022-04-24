@@ -7,32 +7,6 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" integrity="sha512-SGWgwwRA8xZgEoKiex3UubkSkV1zSE1BS6O4pXcaxcNtUlQsOmOmhVnDwIvqGRfEmuz83tIGL13cXMZn6upPyg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<p id="modelo">&emsp;No se ha encontrado modelo!</p>
-
-<div class="container">
-<table class="table">
-    <thead>
-      <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Data</th>
-        <th scope="col">Prediction</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for c, k in stocks %}
-      <tr>
-        <td>{{c}}</td>
-        <td>{{k}}</td>
-        <td>
-          <script>request('{{c}}','{{k}}')</script>
-          <button class="btn btn-primary" id={{c}} onclick="request('{{c}}','{{k}}')">Predict</button>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-</table>
-</div>
-
 <script>
 
   class L2 {
@@ -42,14 +16,6 @@
     }
   }
 tf.serialization.registerClass(L2);
-  var modelo = null;
-  (async () => {
-    document.getElementById("modelo").innerHTML = "&emsp;Cargando!";
-    modelo = await tf.loadLayersModel("/model.json");
-    document.getElementById("modelo").innerHTML = "&emsp;Modelo Cargado!";
-  })();
-  
-  
   
 function request(stock, k){
   k = k.slice(1, -1);
@@ -100,11 +66,44 @@ function request(stock, k){
     const labels = tf.tensor(ys)
 
     let a = modelo.predict(features, labels);
-    div = document.getElementById(stock);
-    div.replaceWith(a);
+    return a;
   }
   run();
 }
     
+</script>
+<p id="modelo">&emsp;No se ha encontrado modelo!</p>
+
+<div class="container">
+<table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Data</th>
+        <th scope="col">Prediction</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for c, k in stocks %}
+      <tr>
+        <td>{{c}}</td>
+        <td>{{k}}</td>
+        <td>
+          <script>request('{{c}}','{{k}}')</script>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<script>
+
+  var modelo = null;
+  (async () => {
+    document.getElementById("modelo").innerHTML = "&emsp;Cargando!";
+    modelo = await tf.loadLayersModel("/model.json");
+    document.getElementById("modelo").innerHTML = "&emsp;Modelo Cargado!";
+  })();
 </script>
 {% endblock extracontent %}

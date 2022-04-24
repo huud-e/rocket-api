@@ -106,13 +106,10 @@ async fn predict(stock:String, data: String) -> Result<Redirect, std::io::Error>
     let vpt = strings[0].to_string();
     let obv = strings[1].to_string().replace(" ", "");
 
-
     match write_to_file_predict(&a1.to_string(), &vpt, &obv){
         Err(e) => println!("{:?}", e),
         _ => (),
     }
-
-    println!("Correcto!");
     Ok(Redirect::to(uri!(index)))
 }
 
